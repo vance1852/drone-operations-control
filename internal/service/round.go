@@ -17,23 +17,17 @@ func (s *Service) CompleteDroneMissionBatch(ctx context.Context, meta RequestMet
 }
 
 func (s *Service) CancelDroneMissionBatch(ctx context.Context, meta RequestMeta, id string, version int64) error {
-	if err := s.repo.InTx(ctx, func(tx repository.Repository) error {
+	return s.repo.InTx(ctx, func(tx repository.Repository) error {
 		repo, ok := tx.(interface {
 			CancelDroneMissionBatch(context.Context, string, int64) error
+			RestoreCancelledDroneTasks(context.Context, string) error
+			WriteAudit(context.Context, repository.AuditInput) error
 		})
 		if !ok {
 			return fmt.Errorf("missionBatch repository unavailable")
 		}
-		return repo.CancelDroneMissionBatch(ctx, id, version)
-	}); err != nil {
-		return err
-	}
-	return s.repo.InTx(ctx, func(tx repository.Repository) error {
-		repo, ok := tx.(interface {
-			RestoreCancelledDroneTasks(context.Context, string) error
-		})
-		if !ok {
-			return fmt.Errorf("missionBatch restoration repository unavailable")
+		if err := repo.CancelDroneMissionBatch(ctx, id, version); err != nil {
+			return err
 		}
 		if err := repo.RestoreCancelledDroneTasks(ctx, id); err != nil {
 			return err
