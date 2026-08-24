@@ -80,6 +80,11 @@ func (s *Service) CreateMission(ctx context.Context, meta RequestMeta, in Create
 	}
 	response := CreateMissionResponse{Mission: mission, DroneUnitIDs: make([]string, 0, len(in.DroneUnits))}
 	err := s.runCreateMissionTransaction(ctx, func(tx repository.Repository) error {
+		// Build the drone IDs in a per-attempt slice so that a rolled-back
+		// retry attempt (e.g. a serializable conflict) cannot leave phantom
+		// IDs in the response. Only the final committed attempt's IDs are
+		// published to the response.
+		droneIDs := make([]string, 0, len(in.DroneUnits))
 		if err := tx.CreateMission(ctx, &mission); err != nil {
 			return err
 		}
@@ -89,9 +94,13 @@ func (s *Service) CreateMission(ctx context.Context, meta RequestMeta, in Create
 			if err != nil {
 				return err
 			}
-			response.DroneUnitIDs = append(response.DroneUnitIDs, id)
+			droneIDs = append(droneIDs, id)
 		}
-		return tx.WriteAudit(ctx, audit(meta, "drone_mission", mission.ID, "create", "success", nil))
+		if err := tx.WriteAudit(ctx, audit(meta, "drone_mission", mission.ID, "create", "success", nil)); err != nil {
+			return err
+		}
+		response.DroneUnitIDs = droneIDs
+		return nil
 	})
 	if err != nil {
 		return CreateMissionResponse{}, err
