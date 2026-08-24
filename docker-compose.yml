@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: drone
+      POSTGRES_PASSWORD: drone
+      POSTGRES_DB: drone_operations
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U drone -d drone_operations"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    volumes:
+      - drone-postgres:/var/lib/postgresql/data
+
+volumes:
+  drone-postgres:
