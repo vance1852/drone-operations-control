@@ -13,7 +13,10 @@ func (c *Chain) Append(event Event) (string, error) {
 	if err := event.Validate(); err != nil {
 		return "", err
 	}
-	c.beginAppend(event)
+	// Derive the provisional prior link without mutating chain state so a
+	// rejected append (e.g. an event that fails to JSON-encode) cannot leave
+	// a ghost node that subsequent appends would chain from.
+	previous := c.beginAppend(event)
 	if event.Detail == nil {
 		event.Detail = map[string]any{}
 	}
@@ -24,7 +27,7 @@ func (c *Chain) Append(event Event) (string, error) {
 	payload, err := json.Marshal(struct {
 		Previous string          `json:"previous"`
 		Event    json.RawMessage `json:"event"`
-	}{Previous: c.previous, Event: body})
+	}{Previous: previous, Event: body})
 	if err != nil {
 		return "", fmt.Errorf("marshal audit chain: %w", err)
 	}
