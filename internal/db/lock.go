@@ -16,7 +16,7 @@ func AdvisoryLock(ctx context.Context, pool *Pool, key int64, fn func() error) e
 		return fmt.Errorf("acquire advisory lock: %w", err)
 	}
 	defer func() {
-		unlockCtx, cancel := advisoryUnlockContext(ctx)
+		unlockCtx, cancel := advisoryUnlockContext()
 		defer cancel()
 		_, _ = conn.Exec(unlockCtx, `SELECT pg_advisory_unlock($1)`, key)
 	}()
