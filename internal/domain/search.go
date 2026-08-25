@@ -12,6 +12,15 @@ const (
 	SortCode    SortField = "task_code"
 )
 
+func isKnownSortField(field SortField) bool {
+	switch field {
+	case SortCreated, SortExpiry, SortCode:
+		return true
+	default:
+		return false
+	}
+}
+
 type SearchRequest struct {
 	Filter DroneTaskFilter
 	Sort   SortField
@@ -22,7 +31,7 @@ type SearchRequest struct {
 
 func (r SearchRequest) Normalize() SearchRequest {
 	r.Filter = r.Filter.Normalize()
-	if r.Sort == "" {
+	if !isKnownSortField(r.Sort) {
 		r.Sort = SortCreated
 	}
 	if r.Offset < 0 {

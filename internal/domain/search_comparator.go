@@ -17,6 +17,8 @@ func searchComparator(field SortField, items []DroneTask) func(int, int) bool {
 			return items[left].ID < items[right].ID
 		}
 	default:
-		return nil
+		return func(left, right int) bool {
+			return items[left].ID < items[right].ID
+		}
 	}
 }
