@@ -33,20 +33,22 @@ func RunWithRetry(ctx context.Context, policy RetryPolicy, operation func(contex
 	if policy.Attempts < 1 {
 		return fmt.Errorf("retry attempts must be positive")
 	}
-	attemptCtx, cancelAttempt := newAttemptContext(ctx)
-	defer cancelAttempt()
-
 	var last error
 	for attempt := 1; attempt <= policy.Attempts; attempt++ {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := operation(attemptCtx); err == nil {
-			return nil
-		} else {
-			last = err
-		}
+		// Each attempt gets a fresh child context so a transient failure on one
+		// attempt does not leave the context cancelled for subsequent retries.
+		// attemptCtx is cancelled below before the delay, but it still honors the
+		// parent ctx for external cancellation.
+		attemptCtx, cancelAttempt := newAttemptContext(ctx)
+		err := operation(attemptCtx)
 		cancelAttempt()
+		if err == nil {
+			return nil
+		}
+		last = err
 		if attempt == policy.Attempts {
 			break
 		}

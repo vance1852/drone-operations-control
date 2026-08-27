@@ -36,3 +36,22 @@ func TestRunWithRetryPropagatesCancellation(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestRunWithRetryGivesEachAttemptFreshContext(t *testing.T) {
+	var seen []error
+	err := RunWithRetry(context.Background(), RetryPolicy{Attempts: 3, BaseDelay: time.Nanosecond, MaxDelay: time.Nanosecond}, func(attemptCtx context.Context) error {
+		seen = append(seen, attemptCtx.Err())
+		if len(seen) < 3 {
+			return errors.New("temporary")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	for i, cErr := range seen {
+		if cErr != nil {
+			t.Fatalf("attempt %d ran with already-cancelled context: %v", i+1, cErr)
+		}
+	}
+}
